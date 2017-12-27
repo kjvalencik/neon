@@ -58,6 +58,11 @@ register_module!(m, {
 
     m.export("perform_async_task", perform_async_task)?;
     m.export("perform_failing_task", perform_failing_task)?;
+    m.export("perform_owned_task", perform_owned_task)?;
+    m.export("perform_borrowed_task", perform_borrowed_task)?;
+    m.export("perform_borrowed_task_static", perform_borrowed_task_static)?;
+    m.export("perform_borrowed_task_static_short", perform_borrowed_task_static_short)?;
+    m.export("perform_borrowed_task_forgot", perform_borrowed_task_forgot)?;
 
     m.export("panic", panic)?;
     m.export("panic_after_throw", panic_after_throw)?;
