@@ -31,11 +31,11 @@ declare_types! {
   }
 
   pub class JsUser for User {
-    init(mut cx) {
-      let id = cx.argument::<JsNumber>(0)?;
-      let first_name: Handle<JsString> = cx.argument::<JsString>(1)?;
-      let last_name: Handle<JsString> = cx.argument::<JsString>(2)?;
-      let email: Handle<JsString> = cx.argument::<JsString>(3)?;
+    init(cx) {
+      let (cx, id) = cx.argument::<JsNumber>(0)?;
+      let (cx, first_name) = cx.argument::<JsString>(1)?;
+      let (cx, last_name) = cx.argument::<JsString>(2)?;
+      let (_, email) = cx.argument::<JsString>(3)?;
 
       Ok(User {
         id: id.value() as i32,
@@ -45,8 +45,9 @@ declare_types! {
       })
     }
 
-    method get(mut cx) {
-      let attr: String = cx.argument::<JsString>(0)?.value();
+    method get(cx) {
+      let (mut cx, attr) = cx.argument::<JsString>(0)?;
+      let attr = attr.value();
 
       let this = cx.this();
 

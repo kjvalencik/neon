@@ -10,7 +10,7 @@ use neon_runtime;
 use neon_runtime::raw;
 use types::Value;
 use context::Context;
-use result::{JsResult, JsResultExt};
+use result::{JsContextResult, JsResultExt};
 use self::internal::SuperType;
 
 /// The trait of data that is managed by the JS garbage collector and can only be accessed via handles.
@@ -85,9 +85,9 @@ impl<F: Value, T: Value> Error for DowncastError<F, T> {
 pub type DowncastResult<'a, F, T> = Result<Handle<'a, T>, DowncastError<F, T>>;
 
 impl<'a, F: Value, T: Value> JsResultExt<'a, T> for DowncastResult<'a, F, T> {
-    fn or_throw<'b, C: Context<'b>>(self, cx: &mut C) -> JsResult<'a, T> {
+    fn or_throw<'b, C: Context<'b>>(self, cx: C) -> JsContextResult<'a, C, T> {
         match self {
-            Ok(v) => Ok(v),
+            Ok(v) => Ok((cx, v)),
             Err(e) => cx.throw_type_error(&e.description)
         }
     }
@@ -134,7 +134,7 @@ impl<'a, T: Value> Handle<'a, T> {
     /// Attempts to downcast a handle to another type, raising a JavaScript `TypeError`
     /// exception on failure. This method is a convenient shorthand, equivalent to
     /// `self.downcast::<U>().or_throw::<C>(cx)`.
-    pub fn downcast_or_throw<'b, U: Value, C: Context<'b>>(&self, cx: &mut C) -> JsResult<'a, U> {
+    pub fn downcast_or_throw<'b, U: Value, C: Context<'b>>(&self, cx: C) -> JsContextResult<'a, C, U> {
         self.downcast().or_throw(cx)
     }
 

@@ -70,8 +70,8 @@ register_module!(mut cx, {
     cx.export_function("panic", panic)?;
     cx.export_function("panic_after_throw", panic_after_throw)?;
 
-    cx.export_class::<JsUser>("User")?;
-    cx.export_class::<JsPanickyAllocator>("PanickyAllocator")?;
+    let (cx, _) = cx.export_class::<JsUser>("User")?;
+    let (cx, _) = cx.export_class::<JsPanickyAllocator>("PanickyAllocator")?;
     cx.export_class::<JsPanickyConstructor>("PanickyConstructor")?;
 
     Ok(())

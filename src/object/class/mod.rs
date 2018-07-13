@@ -12,7 +12,7 @@ use neon_runtime::raw;
 use neon_runtime::call::CCallback;
 use context::{Context, Lock, CallbackInfo};
 use context::internal::Isolate;
-use result::{NeonResult, JsResult, Throw};
+use result::{NeonContextResult, NeonResult, JsContextResult, Throw};
 use borrow::{Borrow, BorrowMut, Ref, RefMut, LoanError};
 use handle::{Handle, Managed};
 use types::{Value, JsFunction, JsValue, build};
@@ -98,17 +98,21 @@ pub trait Class: Managed + Any {
     fn setup<'a, C: Context<'a>>(_: &mut C) -> NeonResult<ClassDescriptor<'a, Self>>;
 
     /// Produces a handle to the constructor function for this class.
-    fn constructor<'a, C: Context<'a>>(cx: &mut C) -> JsResult<'a, JsFunction<Self>> {
-        let metadata = Self::metadata(cx)?;
-        unsafe { metadata.constructor(cx) }
+    fn constructor<'a, C: Context<'a>>(cx: C) -> JsContextResult<'a, C, JsFunction<Self>> {
+        let (mut cx, metadata) = Self::metadata(cx)?;
+        unsafe {
+            metadata
+                .constructor(&mut cx)
+                .map(|res| (cx, res))
+        }
     }
 
     /// Convenience method for constructing new instances of this class without having to extract the constructor function.
-    fn new<'a, 'b, C: Context<'a>, A, AS>(cx: &mut C, args: AS) -> JsResult<'a, Self>
+    fn new<'a, 'b, C: Context<'a>, A, AS>(cx: C, args: AS) -> JsContextResult<'a, C, Self>
         where A: Value + 'b,
               AS: IntoIterator<Item=Handle<'b, A>>
     {
-        let constructor = Self::constructor(cx)?;
+        let (cx, constructor) = Self::constructor(cx)?;
         constructor.construct(cx, args)
     }
 
@@ -134,15 +138,15 @@ pub(crate) trait ClassInternal: Class {
           .map(|m| m.clone())
     }
 
-    fn metadata<'a, C: Context<'a>>(cx: &mut C) -> NeonResult<ClassMetadata> {
-        match Self::metadata_opt(cx) {
-            Some(metadata) => Ok(metadata),
+    fn metadata<'a, C: Context<'a>>(mut cx: C) -> NeonContextResult<C, ClassMetadata> {
+        match Self::metadata_opt(&mut cx) {
+            Some(metadata) => Ok((cx, metadata)),
             None => Self::create(cx)
         }
     }
 
-    fn create<'a, C: Context<'a>>(cx: &mut C) -> NeonResult<ClassMetadata> {
-        let descriptor = Self::setup(cx)?;
+    fn create<'a, C: Context<'a>>(mut cx: C) -> NeonContextResult<C, ClassMetadata> {
+        let descriptor = Self::setup(&mut cx)?;
         unsafe {
             let isolate: *mut c_void = mem::transmute(cx.isolate());
 
@@ -184,7 +188,7 @@ pub(crate) trait ClassInternal: Class {
 
             cx.isolate().class_map().set(TypeId::of::<Self>(), metadata);
 
-            Ok(metadata)
+            Ok((cx, metadata))
         }
     }
 }

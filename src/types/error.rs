@@ -6,7 +6,7 @@ use neon_runtime;
 use neon_runtime::raw;
 
 use context::Context;
-use result::{NeonResult, Throw};
+use result::{NeonContextResult, NeonResult, Throw};
 use types::{Value, Object, Handle, Managed, build};
 use types::internal::ValueInternal;
 use types::utf8::Utf8;
@@ -36,30 +36,30 @@ impl Object for JsError { }
 
 impl JsError {
     /// Creates a direct instance of the [`Error`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error) class.
-    pub fn error<'a, C: Context<'a>, S: AsRef<str>>(cx: &mut C, msg: S) -> NeonResult<Handle<'a, JsError>> {
+    pub fn error<'a, C: Context<'a>, S: AsRef<str>>(mut cx: C, msg: S) -> NeonContextResult<C, Handle<'a, JsError>> {
         let msg = cx.string(msg.as_ref());
         build(|out| unsafe {
             neon_runtime::error::new_error(out, msg.to_raw());
             true
-        })
+        }).map(|res| (cx, res))
     }
 
     /// Creates an instance of the [`TypeError`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/TypeError) class.
-    pub fn type_error<'a, C: Context<'a>, S: AsRef<str>>(cx: &mut C, msg: S) -> NeonResult<Handle<'a, JsError>> {
+    pub fn type_error<'a, C: Context<'a>, S: AsRef<str>>(mut cx: C, msg: S) -> NeonContextResult<C, Handle<'a, JsError>> {
         let msg = cx.string(msg.as_ref());
         build(|out| unsafe {
             neon_runtime::error::new_type_error(out, msg.to_raw());
             true
-        })
+        }).map(|res| (cx, res))
     }
 
     /// Creates an instance of the [`RangeError`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/RangeError) class.
-    pub fn range_error<'a, C: Context<'a>, S: AsRef<str>>(cx: &mut C, msg: S) -> NeonResult<Handle<'a, JsError>> {
+    pub fn range_error<'a, C: Context<'a>, S: AsRef<str>>(mut cx: C, msg: S) -> NeonContextResult<C, Handle<'a, JsError>> {
         let msg = cx.string(msg.as_ref());
         build(|out| unsafe {
             neon_runtime::error::new_range_error(out, msg.to_raw());
             true
-        })
+        }).map(|res| (cx, res))
     }
 }
 

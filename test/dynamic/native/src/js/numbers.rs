@@ -20,22 +20,22 @@ pub fn return_negative_float_js_number(mut cx: FunctionContext) -> JsResult<JsNu
     Ok(cx.number(-1.4747_f64))
 }
 
-pub fn accept_and_return_js_number(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let number: Handle<JsNumber> = cx.argument(0)?;
+pub fn accept_and_return_js_number(cx: FunctionContext) -> JsResult<JsNumber> {
+    let (_, number): (_, Handle<JsNumber>) = cx.argument(0)?;
     Ok(number)
 }
 
-pub fn accept_and_return_large_js_number(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let number: Handle<JsNumber> = cx.argument(0)?;
+pub fn accept_and_return_large_js_number(cx: FunctionContext) -> JsResult<JsNumber> {
+    let (_, number): (_, Handle<JsNumber>) = cx.argument(0)?;
     Ok(number)
 }
 
-pub fn accept_and_return_float_js_number(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let number: Handle<JsNumber> = cx.argument(0)?;
+pub fn accept_and_return_float_js_number(cx: FunctionContext) -> JsResult<JsNumber> {
+    let (_, number): (_, Handle<JsNumber>) = cx.argument(0)?;
     Ok(number)
 }
 
-pub fn accept_and_return_negative_js_number(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let number: Handle<JsNumber> = cx.argument(0)?;
+pub fn accept_and_return_negative_js_number(cx: FunctionContext) -> JsResult<JsNumber> {
+    let (_, number): (_, Handle<JsNumber>) = cx.argument(0)?;
     Ok(number)
 }

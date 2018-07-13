@@ -168,7 +168,7 @@ macro_rules! class_definition {
                           $typ ;
                           $allocator ;
                           ({
-                              fn _______call_rust_y_u_no_hygienic_items_______($cx: $crate::context::CallContext<$crate::types::JsValue>) -> $crate::result::JsResult<$crate::types::JsValue> {
+                              fn _______call_rust_y_u_no_hygienic_items_______($cx: $crate::context::CallContext<$crate::types::JsValue>) -> $crate::result::JsContextResult<$crate::context::CallContext<$crate::types::JsValue>, $crate::types::JsValue> {
                                   $body
                               }
 

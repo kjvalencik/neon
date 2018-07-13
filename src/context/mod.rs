@@ -17,7 +17,7 @@ use types::binary::{JsArrayBuffer, JsBuffer};
 use types::error::JsError;
 use object::{Object, This};
 use object::class::Class;
-use result::{NeonResult, JsResult, Throw};
+use result::{NeonContextResult, NeonResult, JsContextResult, JsResult, Throw};
 use self::internal::{ContextInternal, Scope, ScopeMetadata};
 
 #[repr(C)]
@@ -69,14 +69,14 @@ impl CallbackInfo {
         }
     }
 
-    pub fn require<'b, C: Context<'b>>(&self, cx: &mut C, i: i32) -> JsResult<'b, JsValue> {
+    pub fn require<'b, C: Context<'b>>(&self, cx: C, i: i32) -> JsContextResult<'b, C, JsValue> {
         if i < 0 || i >= self.len() {
             return cx.throw_type_error("not enough arguments");
         }
         unsafe {
             let mut local: raw::Local = std::mem::zeroed();
             neon_runtime::call::get(&self.info, i, &mut local);
-            Ok(Handle::new_internal(JsValue::from_raw(local)))
+            Ok((cx, Handle::new_internal(JsValue::from_raw(local))))
         }
     }
 
@@ -289,7 +289,7 @@ pub trait Context<'a>: ContextInternal<'a> {
     }
 
     /// Throws a JS value.
-    fn throw<'b, T: Value, U>(&mut self, v: Handle<'b, T>) -> NeonResult<U> {
+    fn throw<'b, T: Value, U>(self, v: Handle<'b, T>) -> NeonResult<U> {
         unsafe {
             neon_runtime::error::throw(v.to_raw());
         }
@@ -297,36 +297,36 @@ pub trait Context<'a>: ContextInternal<'a> {
     }
 
     /// Creates a direct instance of the [`Error`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error) class.
-    fn error<S: AsRef<str>>(&mut self, msg: S) -> JsResult<'a, JsError> {
+    fn error<S: AsRef<str>>(self, msg: S) -> JsContextResult<'a, Self, JsError> {
         JsError::error(self, msg)
     }
 
     /// Creates an instance of the [`TypeError`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/TypeError) class.
-    fn type_error<S: AsRef<str>>(&mut self, msg: S) -> JsResult<'a, JsError> {
+    fn type_error<S: AsRef<str>>(self, msg: S) -> JsContextResult<'a, Self, JsError> {
         JsError::type_error(self, msg)
     }
 
     /// Creates an instance of the [`RangeError`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/RangeError) class.
-    fn range_error<S: AsRef<str>>(&mut self, msg: S) -> JsResult<'a, JsError> {
+    fn range_error<S: AsRef<str>>(self, msg: S) -> JsContextResult<'a, Self, JsError> {
         JsError::range_error(self, msg)
     }
 
     /// Throws a direct instance of the [`Error`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Error) class.
-    fn throw_error<S: AsRef<str>, T>(&mut self, msg: S) -> NeonResult<T> {
-        let err = JsError::error(self, msg)?;
-        self.throw(err)
+    fn throw_error<S: AsRef<str>, T>(self, msg: S) -> NeonResult<T> {
+        let (cx, err) = JsError::error(self, msg)?;
+        cx.throw(err)
     }
 
     /// Throws an instance of the [`TypeError`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/TypeError) class.
-    fn throw_type_error<S: AsRef<str>, T>(&mut self, msg: S) -> NeonResult<T> {
-        let err = JsError::type_error(self, msg)?;
-        self.throw(err)
+    fn throw_type_error<S: AsRef<str>, T>(self, msg: S) -> NeonResult<T> {
+        let (cx, err) = JsError::type_error(self, msg)?;
+        cx.throw(err)
     }
 
     /// Throws an instance of the [`RangeError`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/RangeError) class.
-    fn throw_range_error<S: AsRef<str>, T>(&mut self, msg: S) -> NeonResult<T> {
-        let err = JsError::range_error(self, msg)?;
-        self.throw(err)
+    fn throw_range_error<S: AsRef<str>, T>(self, msg: S) -> NeonResult<T> {
+        let (cx, err) = JsError::range_error(self, msg)?;
+        cx.throw(err)
     }
 }
 
@@ -358,10 +358,11 @@ impl<'a> ModuleContext<'a> {
     }
 
     /// Convenience method for exporting a Neon class constructor from a module.
-    pub fn export_class<T: Class>(&mut self, key: &str) -> NeonResult<()> {
-        let constructor = T::constructor(self)?;
-        self.exports.set(self, key, constructor)?;
-        Ok(())
+    pub fn export_class<T: Class>(self, key: &str) -> NeonContextResult<Self, ()> {
+        let exports = self.exports;
+        let (mut cx, constructor) = T::constructor(self)?;
+        exports.set(&mut cx, key, constructor)?;
+        Ok((cx, ()))
     }
 
     /// Exports a JavaScript value from a Neon module.
@@ -466,9 +467,9 @@ impl<'a, T: This> CallContext<'a, T> {
     }
 
     /// Produces the `i`th argument and casts it to the type `V`, or throws an exception if `i` is greater than or equal to `self.len()` or cannot be cast to `V`.
-    pub fn argument<V: Value>(&mut self, i: i32) -> JsResult<'a, V> {
-        let a = self.info.require(self, i)?;
-        a.downcast_or_throw(self)
+    pub fn argument<V: Value>(self, i: i32) -> JsContextResult<'a, Self, V> {
+        let (cx, a) = self.info.require(self, i)?;
+        a.downcast_or_throw(cx)
     }
 
     /// Produces a handle to the `this`-binding.

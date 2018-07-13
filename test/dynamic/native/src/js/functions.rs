@@ -1,8 +1,10 @@
 use neon::prelude::*;
+use neon::result::JsContextResult;
 use neon::object::This;
 
-fn add1(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let x = cx.argument::<JsNumber>(0)?.value();
+fn add1(cx: FunctionContext) -> JsResult<JsNumber> {
+    let (mut cx, x) = cx.argument::<JsNumber>(0)?;
+    let x = x.value();
     Ok(cx.number(x + 1.0))
 }
 
@@ -10,35 +12,40 @@ pub fn return_js_function(mut cx: FunctionContext) -> JsResult<JsFunction> {
     JsFunction::new(&mut cx, add1)
 }
 
-pub fn call_js_function(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let f = cx.argument::<JsFunction>(0)?;
+pub fn call_js_function(cx: FunctionContext) -> JsResult<JsNumber> {
+    let (mut cx, f) = cx.argument::<JsFunction>(0)?;
     let args: Vec<Handle<JsNumber>> = vec![cx.number(16.0)];
     let null = cx.null();
-    f.call(&mut cx, null, args)?.downcast::<JsNumber>().or_throw(&mut cx)
+    let (cx, res) = f.call(cx, null, args)?;
+
+    res.downcast::<JsNumber>()
+        .or_throw(cx)
+        .map(|(_, res)| res)
 }
 
-pub fn construct_js_function(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let f = cx.argument::<JsFunction>(0)?;
+pub fn construct_js_function(cx: FunctionContext) -> JsResult<JsNumber> {
+    let (mut cx, f) = cx.argument::<JsFunction>(0)?;
     let zero = cx.number(0.0);
-    let o = f.construct(&mut cx, vec![zero])?;
-    let get_utc_full_year_method = o.get(&mut cx, "getUTCFullYear")?.downcast::<JsFunction>().or_throw(&mut cx)?;
+    let (mut cx, o) = f.construct(cx, vec![zero])?;
+    let (cx, get_utc_full_year_method) = o.get(&mut cx, "getUTCFullYear")?.downcast::<JsFunction>().or_throw(cx)?;
     let args: Vec<Handle<JsValue>> = vec![];
-    get_utc_full_year_method.call(&mut cx, o.upcast::<JsValue>(), args)?.downcast::<JsNumber>().or_throw(&mut cx)
+    let (cx, res) = get_utc_full_year_method.call(cx, o.upcast::<JsValue>(), args)?;
+    res.downcast::<JsNumber>().or_throw(cx).map(|(_, res)| res)
 }
 
-trait CheckArgument<'a> {
-    fn check_argument<V: Value>(&mut self, i: i32) -> JsResult<'a, V>;
+trait CheckArgument<'a, C> {
+    fn check_argument<V: Value>(self, i: i32) -> JsContextResult<'a, C, V>;
 }
 
-impl<'a, T: This> CheckArgument<'a> for CallContext<'a, T> {
-    fn check_argument<V: Value>(&mut self, i: i32) -> JsResult<'a, V> {
+impl<'a, T: This> CheckArgument<'a, CallContext<'a, T>> for CallContext<'a, T> {
+    fn check_argument<V: Value>(self, i: i32) -> JsContextResult<'a, CallContext<'a, T>, V> {
         self.argument::<V>(i)
     }
 }
 
-pub fn check_string_and_number(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-    cx.check_argument::<JsString>(0)?;
-    cx.check_argument::<JsNumber>(1)?;
+pub fn check_string_and_number(cx: FunctionContext) -> JsResult<JsUndefined> {
+    let (cx, _) = cx.check_argument::<JsString>(0)?;
+    let (mut cx, _) = cx.check_argument::<JsNumber>(1)?;
     Ok(cx.undefined())
 }
 
@@ -46,7 +53,7 @@ pub fn panic(_: FunctionContext) -> JsResult<JsUndefined> {
     panic!("zomg")
 }
 
-pub fn panic_after_throw(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+pub fn panic_after_throw(cx: FunctionContext) -> JsResult<JsUndefined> {
     cx.throw_range_error::<_, ()>("entering throw state with a RangeError").unwrap_err();
     panic!("this should override the RangeError")
 }
@@ -62,7 +69,7 @@ pub fn return_this(mut cx: FunctionContext) -> JsResult<JsValue> {
 
 pub fn require_object_this(mut cx: FunctionContext) -> JsResult<JsUndefined> {
     let this = cx.this();
-    let this = this.downcast::<JsObject>().or_throw(&mut cx)?;
+    let (mut cx, this) = this.downcast::<JsObject>().or_throw(cx)?;
     let t = cx.boolean(true);
     this.set(&mut cx, "modified", t)?;
     Ok(cx.undefined())
@@ -73,8 +80,8 @@ pub fn is_argument_zero_some(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     Ok(cx.boolean(b))
 }
 
-pub fn require_argument_zero_string(mut cx: FunctionContext) -> JsResult<JsString> {
-    let s = cx.argument(0)?;
+pub fn require_argument_zero_string(cx: FunctionContext) -> JsResult<JsString> {
+    let (_, s) = cx.argument(0)?;
     Ok(s)
 }
 

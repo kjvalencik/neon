@@ -7,7 +7,7 @@ use super::{Class, ClassInternal, Callback};
 use handle::{Handle, Managed};
 use context::{CallbackInfo, CallContext, Context};
 use context::internal::ContextInternal;
-use result::{NeonResult, JsResult, Throw};
+use result::{NeonResult, JsContextResult, JsResult, Throw};
 use types::{JsValue, JsObject, JsFunction, JsUndefined, build};
 use types::error::convert_panics;
 
@@ -21,7 +21,7 @@ impl<T: Class> Callback<()> for MethodCallback<T> {
                 let data = info.data();
                 let this: Handle<JsValue> = Handle::new_internal(JsValue::from_raw(info.this(&mut cx)));
                 if !this.is_a::<T>() {
-                    if let Ok(metadata) = T::metadata(&mut cx) {
+                    if let Ok((cx, metadata)) = T::metadata(cx) {
                         neon_runtime::class::throw_this_error(mem::transmute(cx.isolate()), metadata.pointer);
                     }
                     return;
@@ -41,13 +41,13 @@ impl<T: Class> Callback<()> for MethodCallback<T> {
 }
 
 #[repr(C)]
-pub struct ConstructorCallCallback(pub fn(CallContext<JsValue>) -> JsResult<JsValue>);
+pub struct ConstructorCallCallback(pub fn(CallContext<JsValue>) -> JsContextResult<CallContext<JsValue>, JsValue>);
 
 impl ConstructorCallCallback {
     pub(crate) fn default<T: Class>() -> Self {
-        fn callback<T: Class>(mut cx: CallContext<JsValue>) -> JsResult<JsValue> {
+        fn callback<T: Class>(cx: CallContext<JsValue>) -> JsContextResult<CallContext<JsValue>, JsValue> {
             unsafe {
-                if let Ok(metadata) = T::metadata(&mut cx) {
+                if let Ok((cx, metadata)) = T::metadata(cx) {
                     neon_runtime::class::throw_call_error(mem::transmute(cx.isolate()), metadata.pointer);
                 }
             }

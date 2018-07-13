@@ -14,7 +14,7 @@ use neon_runtime;
 use neon_runtime::raw;
 use context::{Context, FunctionContext};
 use context::internal::Isolate;
-use result::{NeonResult, JsResult, Throw, JsResultExt};
+use result::{NeonContextResult, NeonResult, JsContextResult, JsResult, Throw, JsResultExt};
 use object::{Object, This};
 use object::class::Callback;
 use handle::{Handle, Managed};
@@ -232,9 +232,9 @@ impl fmt::Display for StringOverflow {
 pub type StringResult<'a> = Result<Handle<'a, JsString>, StringOverflow>;
 
 impl<'a> JsResultExt<'a, JsString> for StringResult<'a> {
-    fn or_throw<'b, C: Context<'b>>(self, cx: &mut C) -> JsResult<'a, JsString> {
+    fn or_throw<'b, C: Context<'b>>(self, cx: C) -> JsContextResult<'a, C, JsString> {
         match self {
-            Ok(v) => Ok(v),
+            Ok(v) => Ok((cx, v)),
             Err(e) => cx.throw_range_error(&e.to_string())
         }
     }
@@ -461,7 +461,7 @@ impl<T: Object> Object for JsFunction<T> { }
 // Maximum number of function arguments in V8.
 const V8_ARGC_LIMIT: usize = 65535;
 
-unsafe fn prepare_call<'a, 'b, C: Context<'a>, A>(cx: &mut C, args: &mut [Handle<'b, A>]) -> NeonResult<(*mut c_void, i32, *mut c_void)>
+unsafe fn prepare_call<'a, 'b, C: Context<'a>, A>(cx: C, args: &mut [Handle<'b, A>]) -> NeonContextResult<C, (*mut c_void, i32, *mut c_void)>
     where A: Value + 'b
 {
     let argv = args.as_mut_ptr();
@@ -470,7 +470,7 @@ unsafe fn prepare_call<'a, 'b, C: Context<'a>, A>(cx: &mut C, args: &mut [Handle
         return cx.throw_range_error("too many arguments");
     }
     let isolate: *mut c_void = std::mem::transmute(cx.isolate().to_raw());
-    Ok((isolate, argc as i32, argv as *mut c_void))
+    Ok((cx, (isolate, argc as i32, argv as *mut c_void)))
 }
 
 impl JsFunction {
@@ -489,31 +489,31 @@ impl JsFunction {
 }
 
 impl<CL: Object> JsFunction<CL> {
-    pub fn call<'a, 'b, C: Context<'a>, T, A, AS>(self, cx: &mut C, this: Handle<'b, T>, args: AS) -> JsResult<'a, JsValue>
+    pub fn call<'a, 'b, C: Context<'a>, T, A, AS>(self, cx: C, this: Handle<'b, T>, args: AS) -> JsContextResult<'a, C, JsValue>
         where T: Value,
               A: Value + 'b,
               AS: IntoIterator<Item=Handle<'b, A>>
     {
         let mut args = args.into_iter().collect::<Vec<_>>();
-        let (isolate, argc, argv) = unsafe { prepare_call(cx, &mut args) }?;
+        let (cx, (isolate, argc, argv)) = unsafe { prepare_call(cx, &mut args) }?;
         build(|out| {
             unsafe {
                 neon_runtime::fun::call(out, isolate, self.to_raw(), this.to_raw(), argc, argv)
             }
-        })
+        }).map(|res| (cx, res))
     }
 
-    pub fn construct<'a, 'b, C: Context<'a>, A, AS>(self, cx: &mut C, args: AS) -> JsResult<'a, CL>
+    pub fn construct<'a, 'b, C: Context<'a>, A, AS>(self, cx: C, args: AS) -> JsContextResult<'a, C, CL>
         where A: Value + 'b,
               AS: IntoIterator<Item=Handle<'b, A>>
     {
         let mut args = args.into_iter().collect::<Vec<_>>();
-        let (isolate, argc, argv) = unsafe { prepare_call(cx, &mut args) }?;
+        let (cx, (isolate, argc, argv)) = unsafe { prepare_call(cx, &mut args) }?;
         build(|out| {
             unsafe {
                 neon_runtime::fun::construct(out, isolate, self.to_raw(), argc, argv)
             }
-        })
+        }).map(|res| (cx, res))
     }
 }
 

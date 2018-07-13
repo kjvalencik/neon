@@ -36,9 +36,10 @@ pub fn return_array_buffer(mut cx: FunctionContext) -> JsResult<JsArrayBuffer> {
     Ok(b)
 }
 
-pub fn read_array_buffer_with_lock(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let b: Handle<JsArrayBuffer> = cx.argument(0)?;
-    let i = cx.argument::<JsNumber>(1)?.value() as u32 as usize;
+pub fn read_array_buffer_with_lock(cx: FunctionContext) -> JsResult<JsNumber> {
+    let (cx, b) = cx.argument::<JsArrayBuffer>(0)?;
+    let (mut cx, i) = cx.argument::<JsNumber>(1)?;
+    let i = i.value() as u32 as usize;
     let x = {
         let guard = cx.lock();
         let data = b.borrow(&guard);
@@ -48,17 +49,20 @@ pub fn read_array_buffer_with_lock(mut cx: FunctionContext) -> JsResult<JsNumber
     Ok(cx.number(x))
 }
 
-pub fn read_array_buffer_with_borrow(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let b: Handle<JsArrayBuffer> = cx.argument(0)?;
-    let i = cx.argument::<JsNumber>(1)?.value() as u32 as usize;
+pub fn read_array_buffer_with_borrow(cx: FunctionContext) -> JsResult<JsNumber> {
+    let (cx, b) = cx.argument::<JsArrayBuffer>(0)?;
+    let (mut cx, i) = cx.argument::<JsNumber>(1)?;
+    let i = i.value() as u32 as usize;
     let x = cx.borrow(&b, |data| { data.as_slice::<u32>()[i] });
     Ok(cx.number(x))
 }
 
-pub fn write_array_buffer_with_lock(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-    let mut b: Handle<JsArrayBuffer> = cx.argument(0)?;
-    let i = cx.argument::<JsNumber>(1)?.value() as u32 as usize;
-    let x = cx.argument::<JsNumber>(2)?.value() as u32;
+pub fn write_array_buffer_with_lock(cx: FunctionContext) -> JsResult<JsUndefined> {
+    let (cx, mut b) = cx.argument::<JsArrayBuffer>(0)?;
+    let (cx, i) = cx.argument::<JsNumber>(1)?;
+    let i = i.value() as u32 as usize;
+    let (mut cx, x) = cx.argument::<JsNumber>(2)?;
+    let x = x.value() as u32;
     {
         let guard = cx.lock();
         let data = b.borrow_mut(&guard);
@@ -68,17 +72,20 @@ pub fn write_array_buffer_with_lock(mut cx: FunctionContext) -> JsResult<JsUndef
     Ok(cx.undefined())
 }
 
-pub fn write_array_buffer_with_borrow_mut(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-    let mut b: Handle<JsArrayBuffer> = cx.argument(0)?;
-    let i = cx.argument::<JsNumber>(1)?.value() as u32 as usize;
-    let x = cx.argument::<JsNumber>(2)?.value() as u32;
+pub fn write_array_buffer_with_borrow_mut(cx: FunctionContext) -> JsResult<JsUndefined> {
+    let (cx, mut b) = cx.argument::<JsArrayBuffer>(0)?;
+    let (cx, i) = cx.argument::<JsNumber>(1)?;
+    let i = i.value() as u32 as usize;
+    let (mut cx, x) = cx.argument::<JsNumber>(2)?;
+    let x = x.value() as u32;
     cx.borrow_mut(&mut b, |data| { data.as_mut_slice::<u32>()[i] = x; });
     Ok(cx.undefined())
 }
 
-pub fn read_buffer_with_lock(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let b: Handle<JsBuffer> = cx.argument(0)?;
-    let i = cx.argument::<JsNumber>(1)?.value() as u32 as usize;
+pub fn read_buffer_with_lock(cx: FunctionContext) -> JsResult<JsNumber> {
+    let (cx, b) = cx.argument::<JsArrayBuffer>(0)?;
+    let (mut cx, i) = cx.argument::<JsNumber>(1)?;
+    let i = i.value() as u32 as usize;
     let x = {
         let guard = cx.lock();
         let data = b.borrow(&guard);
@@ -88,17 +95,20 @@ pub fn read_buffer_with_lock(mut cx: FunctionContext) -> JsResult<JsNumber> {
     Ok(cx.number(x))
 }
 
-pub fn read_buffer_with_borrow(mut cx: FunctionContext) -> JsResult<JsNumber> {
-    let b: Handle<JsBuffer> = cx.argument(0)?;
-    let i = cx.argument::<JsNumber>(1)?.value() as u32 as usize;
+pub fn read_buffer_with_borrow(cx: FunctionContext) -> JsResult<JsNumber> {
+    let (cx, b) = cx.argument::<JsArrayBuffer>(0)?;
+    let (mut cx, i) = cx.argument::<JsNumber>(1)?;
+    let i = i.value() as u32 as usize;
     let x = cx.borrow(&b, |data| { data.as_slice::<u32>()[i] });
     Ok(cx.number(x))
 }
 
-pub fn write_buffer_with_lock(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-    let mut b: Handle<JsBuffer> = cx.argument(0)?;
-    let i = cx.argument::<JsNumber>(1)?.value() as u32 as usize;
-    let x = cx.argument::<JsNumber>(2)?.value() as u32;
+pub fn write_buffer_with_lock(cx: FunctionContext) -> JsResult<JsUndefined> {
+    let (cx, mut b) = cx.argument::<JsArrayBuffer>(0)?;
+    let (cx, i) = cx.argument::<JsNumber>(1)?;
+    let i = i.value() as u32 as usize;
+    let (mut cx, x) = cx.argument::<JsNumber>(2)?;
+    let x = x.value() as u32;
     {
         let guard = cx.lock();
         let data = b.borrow_mut(&guard);
@@ -108,10 +118,12 @@ pub fn write_buffer_with_lock(mut cx: FunctionContext) -> JsResult<JsUndefined> 
     Ok(cx.undefined())
 }
 
-pub fn write_buffer_with_borrow_mut(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-    let mut b: Handle<JsBuffer> = cx.argument(0)?;
-    let i = cx.argument::<JsNumber>(1)?.value() as u32 as usize;
-    let x = cx.argument::<JsNumber>(2)?.value() as u32;
+pub fn write_buffer_with_borrow_mut(cx: FunctionContext) -> JsResult<JsUndefined> {
+    let (cx, mut b) = cx.argument::<JsArrayBuffer>(0)?;
+    let (cx, i) = cx.argument::<JsNumber>(1)?;
+    let i = i.value() as u32 as usize;
+    let (mut cx, x) = cx.argument::<JsNumber>(2)?;
+    let x = x.value() as u32;
     cx.borrow_mut(&mut b, |data| { data.as_mut_slice::<u32>()[i] = x; });
     Ok(cx.undefined())
 }
