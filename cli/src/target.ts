@@ -85,11 +85,23 @@ export default class Target {
     let targetFlags = this.triple ? ["--target=" + this.triple] : [];
 
     let args = [command].concat(releaseFlags, extraFlags, targetFlags);
+    let env = { ...process.env };
+
+    // Link win_delay on windows electron builds
+    if (process.platform === "win32" && env.npm_config_runtime === 'electron') {
+      env.RUSTFLAGS = [
+        env.RUSTFLAGS || '',
+        "-C link-arg=win_delay_load_hook.obj",
+        "-C link-arg=delayimp.lib",
+        "-C link-arg=/DELAYLOAD:node.exe"
+      ].join(" ").trim();
+    }
 
     try {
       let result = await rust.spawn("cargo", args, toolchain, {
         cwd: this.crate.root,
-        stdio: 'inherit'
+        stdio: 'inherit',
+        env
       });
 
       if (result !== 0) {
