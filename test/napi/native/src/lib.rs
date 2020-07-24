@@ -121,5 +121,26 @@ register_module!(|mut cx| {
 
     cx.export_function("get_own_property_names", call_get_own_property_names)?;
 
+    fn test_schedule(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+        let mut queue = neon::sync::EventQueue::new(&mut cx)?;
+        let cb = cx.argument::<JsFunction>(0)?.persistent(&mut cx)?;
+
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+
+            queue.send(move |mut cx| {
+                let cb = cb.deref(&mut cx).unwrap();
+                let this = cx.undefined();
+                let args: Vec<Handle<JsValue>> = Vec::with_capacity(0);
+    
+                let _res = cb.call(&mut cx, this, args);
+            }).unwrap();
+        });
+
+        Ok(cx.undefined())
+    }
+
+    cx.export_function("test_schedule", test_schedule)?;
+
     Ok(())
 });

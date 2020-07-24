@@ -21,5 +21,6 @@ cfg_if! {
     } else if #[cfg(feature = "nodejs-sys")] {
         // The N-API variant is only the default API if the legacy variant is disabled.
         pub use napi::*;
+        pub use nodejs_sys as sys;
     }
 }

@@ -2,6 +2,7 @@
 
 extern crate neon_runtime;
 extern crate cslice;
+// extern crate once_cell;
 extern crate semver;
 
 #[cfg(test)]
@@ -19,6 +20,7 @@ pub mod task;
 pub mod event;
 pub mod meta;
 pub mod prelude;
+pub mod sync;
 
 #[doc(hidden)]
 pub mod macro_internal;
@@ -58,8 +60,8 @@ macro_rules! register_module {
         ) -> $crate::macro_internal::runtime::nodejs_sys::napi_value
         {
             // Suppress the default Rust panic hook, which prints diagnostics to stderr.
-            #[cfg(not(feature = "default-panic-hook"))]
-            ::std::panic::set_hook(::std::boxed::Box::new(|_| { }));
+            // #[cfg(not(feature = "default-panic-hook"))]
+            // ::std::panic::set_hook(::std::boxed::Box::new(|_| { }));
 
             fn __init_neon_module($module: $crate::context::ModuleContext) -> $crate::result::NeonResult<()> $init
 

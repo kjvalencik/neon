@@ -532,6 +532,13 @@ impl<'a, T: This> CallContext<'a, T> {
 
         Handle::new_internal(this)
     }
+
+    pub fn persistent<V: Value>(
+        &mut self,
+        value: Handle<V>,
+    ) -> NeonResult<crate::sync::Persistent<V>> {
+        crate::sync::Persistent::new(self, value)
+    }
 }
 
 impl<'a, T: This> ContextInternal<'a> for CallContext<'a, T> {
@@ -556,8 +563,20 @@ pub struct TaskContext<'a> {
 }
 
 impl<'a> TaskContext<'a> {
+    #[cfg(feature = "legacy-runtime")]
     pub(crate) fn with<T, F: for<'b> FnOnce(TaskContext<'b>) -> T>(f: F) -> T {
         let env = Env::current();
+        Scope::with(env, |scope| {
+            f(TaskContext { scope })
+        })
+    }
+
+    #[cfg(feature = "napi-runtime")]
+    pub(crate) fn with<T, F: for<'b> FnOnce(TaskContext<'b>) -> T>(
+        env: raw::Env,
+        f: F,
+    ) -> T {
+        let env = unsafe { std::mem::transmute(env) };
         Scope::with(env, |scope| {
             f(TaskContext { scope })
         })

@@ -183,6 +183,30 @@ pub trait ContextInternal<'a>: Sized {
             }
         }
     }
+
+    #[cfg(feature = "napi-runtime")]
+    fn global_queue(&mut self) -> crate::sync::EventQueue {
+        let mut data = std::mem::MaybeUninit::uninit();
+        let status = unsafe {
+            napi::napi_get_instance_data(
+                self.env().to_raw(),
+                data.as_mut_ptr(),
+            )
+        };
+
+        // FIXME: This should return an error instead of a panic
+        assert_eq!(status, neon_runtime::sys::napi_status::napi_ok);
+
+        let data: Box<ModuleInstanceData> = unsafe {
+            Box::from_raw(data.assume_init() as *mut _)
+        };
+
+        let queue = data.queue.clone();
+
+        Box::leak(data);
+    
+        queue
+    }
 }
 
 #[cfg(feature = "legacy-runtime")]
@@ -222,6 +246,54 @@ extern "C" fn try_catch_glue<'a, 'b: 'a, C, T, F>(rust_thunk: *mut c_void,
     }
 }
 
+#[cfg(feature = "napi-runtime")]
+struct ModuleInstanceData {
+    queue: crate::sync::EventQueue,
+}
+
+#[cfg(feature = "napi-runtime")]
+impl ModuleInstanceData {
+    fn new(cx: &mut ModuleContext) -> Self {
+        ModuleInstanceData {
+            queue: crate::sync::EventQueue::new(cx)
+                .expect("Failed to module global queue")
+                .unref(cx)
+                .expect("Failed to unref global queue"),
+        }
+    }
+}
+
+#[cfg(feature = "napi-runtime")]
+extern "C" fn drop_module_instance_data(
+    _env: neon_runtime::sys::napi_env,
+    finalize_data: *mut std::os::raw::c_void,
+    _finalize_hint: *mut std::os::raw::c_void,
+) {
+    unsafe {
+        Box::<ModuleInstanceData>::from_raw(finalize_data as *mut _);
+    }
+}
+
+// TODO: These should be moved to nodejs-sys
+#[cfg(feature = "napi-runtime")]
+mod napi {
+    use neon_runtime::sys::*;
+
+    extern "C" {
+            pub fn napi_set_instance_data(
+                env: napi_env,
+                data: *mut ::std::os::raw::c_void,
+                finalize_cb: napi_finalize,
+                finalize_hint: *mut ::std::os::raw::c_void,
+            ) -> napi_status;
+
+            pub fn napi_get_instance_data(
+                env: napi_env,
+                data: *mut *mut ::std::os::raw::c_void,
+            ) -> napi_status;
+    }
+}
+
 #[cfg(feature = "legacy-runtime")]
 pub fn initialize_module(exports: Handle<JsObject>, init: fn(ModuleContext) -> NeonResult<()>) {
     let env = Env::current();
@@ -233,7 +305,22 @@ pub fn initialize_module(exports: Handle<JsObject>, init: fn(ModuleContext) -> N
 
 #[cfg(feature = "napi-runtime")]
 pub fn initialize_module(env: raw::Env, exports: Handle<JsObject>, init: fn(ModuleContext) -> NeonResult<()>) {
-    ModuleContext::with(Env(env), exports, |cx| {
-        let _ = init(cx);
+    // crate::sync::initialize_unref_callback(env);
+    // crate::sync::initialize_threadsafe_closure_callback(env);
+
+    ModuleContext::with(Env(env), exports, |mut cx| {
+        let data = Box::new(ModuleInstanceData::new(&mut cx));
+        let status = unsafe {
+            napi::napi_set_instance_data(
+                cx.env().to_raw(),
+                Box::into_raw(data) as *mut _,
+                Some(drop_module_instance_data),
+                std::ptr::null_mut(),
+            )
+        };
+
+        if status == neon_runtime::sys::napi_status::napi_ok {
+            let _ = init(cx);
+        }
     });
 }

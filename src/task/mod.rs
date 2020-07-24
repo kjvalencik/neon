@@ -55,9 +55,16 @@ unsafe extern "C" fn perform_task<T: Task>(task: *mut c_void) -> *mut c_void {
     mem::transmute(Box::into_raw(Box::new(result)))
 }
 
+#[cfg(feature = "napi-runtime")]
+unsafe extern "C" fn complete_task<T: Task>(_task: *mut c_void, _result: *mut c_void, _out: &mut raw::Local) {
+    unimplemented!();
+}
+
+#[cfg(feature = "legacy-runtime")]
 unsafe extern "C" fn complete_task<T: Task>(task: *mut c_void, result: *mut c_void, out: &mut raw::Local) {
     let result: Result<T::Output, T::Error> = *Box::from_raw(mem::transmute(result));
     let task: Box<T> = Box::from_raw(mem::transmute(task));
+   
     TaskContext::with(|cx| {
         if let Ok(result) = task.complete(cx, result) {
             *out = result.to_raw();

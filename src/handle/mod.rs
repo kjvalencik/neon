@@ -182,6 +182,13 @@ impl<'a, T: Value> Handle<'a, T> {
         self.downcast(cx).or_throw(cx)
     }
 
+    #[cfg(feature = "napi-runtime")]
+    pub fn persistent<'b, C: Context<'b>>(
+        self,
+        cx: &mut C,
+    ) -> crate::result::NeonResult<crate::sync::Persistent<T>> {
+        crate::sync::Persistent::new(cx, self)
+    }
 }
 
 impl<'a, T: Managed> Deref for Handle<'a, T> {
